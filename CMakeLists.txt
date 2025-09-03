@@ -218,6 +218,15 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVSOMEIP_BOOST_VERSION=${VSOMEIP_BOOST_
 
 find_package(PkgConfig)
 
+# OpenSSL (TLS)
+find_package(OpenSSL REQUIRED)
+if (OpenSSL_FOUND)
+    message(STATUS "Found OpenSSL: ${OpenSSL_VERSION}")
+    add_definitions(-DVSOMEIP_ENABLE_TLS)
+else()
+    message(FATAL_ERROR "OpenSSL not found but required for TLS support")
+endif()
+
 # DLT
 if(VSOMEIP_ENABLE_DLT EQUAL 1)
 pkg_check_modules(DLT "automotive-dlt >= 2.11")
@@ -339,6 +348,7 @@ target_include_directories(${VSOMEIP_NAME} INTERFACE
 # build host paths as of writing, which also makes this important as it breaks
 # the build.
 target_link_libraries(${VSOMEIP_NAME} PRIVATE ${Boost_LIBRARIES} ${USE_RT} ${DL_LIBRARY} ${DLT_LIBRARIES} ${SystemD_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(${VSOMEIP_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
 if(NOT WIN32)
     target_link_options(${VSOMEIP_NAME} PRIVATE "LINKER:-as-needed")

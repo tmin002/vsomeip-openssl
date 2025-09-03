@@ -30,6 +30,16 @@ struct service {
 
     std::string protocol_;
 
+    // TLS (optional)
+    bool tls_enable_ = false;
+    std::string tls_ca_root_;
+    std::string tls_ca_intermediate_;
+    std::string tls_ca_ecu_;
+    std::string tls_cert_chain_;
+    std::string tls_private_key_;
+    bool tls_verify_peer_ = true;
+    int tls_verify_depth_ = 3;
+
     // [0] = debounce_time
     // [1] = retention_time
     typedef std::map<method_t, std::array<std::chrono::nanoseconds, 2>> npdu_time_configuration_t;

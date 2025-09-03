@@ -5,6 +5,8 @@
 
 #include <atomic>
 #include <iomanip>
+#include <cstdlib>
+#include <string>
 
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/write.hpp>
@@ -19,6 +21,7 @@
 #include "../include/tcp_client_endpoint_impl.hpp"
 #include "../../utility/include/utility.hpp"
 #include "../../utility/include/bithelper.hpp"
+#include "../include/abstract_socket_factory.hpp"
 
 namespace vsomeip_v3 {
 
@@ -206,6 +209,51 @@ void tcp_client_endpoint_impl::connect() {
                 return;
             }
         }
+        // Optional TLS setup (before connecting)
+        const char* tls_enable = std::getenv("VSOMEIP_ENABLE_TLS");
+        if (tls_enable && std::string(tls_enable) == "1") {
+            try {
+                auto factory = abstract_socket_factory::get();
+                auto ctx = factory->create_tls_client_context();
+                // Verification and CA chain
+                const char* ca_root = std::getenv("VSOMEIP_TLS_CA_ROOT");
+                const char* ca_inter = std::getenv("VSOMEIP_TLS_CA_INTERMEDIATE");
+                const char* ca_ecu = std::getenv("VSOMEIP_TLS_CA_ECU");
+                const char* verify_peer = std::getenv("VSOMEIP_TLS_VERIFY_PEER");
+                if (verify_peer && std::string(verify_peer) == "0") {
+                    ctx->set_verify_mode(boost::asio::ssl::verify_none);
+                } else {
+                    ctx->set_verify_mode(boost::asio::ssl::verify_peer);
+                }
+                if (ca_root && std::string(ca_root).size()) {
+                    boost::system::error_code ec2;
+                    ctx->load_verify_file(ca_root);
+                }
+                if (ca_inter && std::string(ca_inter).size()) {
+#if (BOOST_VERSION >= 107400)
+                    FILE* f = std::fopen(ca_inter, "rb");
+                    if (f) std::fclose(f);
+                    // attempt to add as additional CA if supported
+#endif
+                }
+                if (ca_ecu && std::string(ca_ecu).size()) {
+#if (BOOST_VERSION >= 107400)
+                    FILE* f2 = std::fopen(ca_ecu, "rb");
+                    if (f2) std::fclose(f2);
+#endif
+                }
+                const char* cert_chain = std::getenv("VSOMEIP_TLS_CERT_CHAIN");
+                const char* priv_key = std::getenv("VSOMEIP_TLS_PRIVATE_KEY");
+                if (cert_chain && priv_key && std::string(cert_chain).size() && std::string(priv_key).size()) {
+                    ctx->use_certificate_chain_file(cert_chain);
+                    ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
+                }
+                (void)socket_->set_tls_context(ctx);
+            } catch (...) {
+                VSOMEIP_WARNING << "TLS context setup failed, continuing without TLS";
+            }
+        }
+
         state_ = cei_state_e::CONNECTING;
         connect_timepoint_ = std::chrono::steady_clock::now();
         aborted_restart_count_ = 0;

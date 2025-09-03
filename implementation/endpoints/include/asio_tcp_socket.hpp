@@ -10,6 +10,7 @@
 
 #include <boost/asio/write.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/stream.hpp>
 
 #include <string>
 
@@ -19,7 +20,8 @@ class asio_tcp_acceptor;
 
 class asio_tcp_socket final : public tcp_socket {
 public:
-    asio_tcp_socket(boost::asio::io_context& _io) : socket_(_io) { }
+    asio_tcp_socket(boost::asio::io_context& _io)
+        : socket_(_io), ssl_stream_(), ssl_ctx_(nullptr), use_tls_(false) { }
 
 private:
     [[nodiscard]] bool is_open() const override { return socket_.is_open(); }
@@ -52,17 +54,54 @@ private:
     void async_connect(boost::asio::ip::tcp::endpoint const& ep, connect_handler handler) override {
         socket_.async_connect(ep, std::move(handler));
     }
-    void async_receive(boost::asio::mutable_buffer b, rw_handler handler) override { socket_.async_receive(b, std::move(handler)); }
+    void async_receive(boost::asio::mutable_buffer b, rw_handler handler) override {
+        if (use_tls_ && ssl_stream_) {
+            ssl_stream_->async_read_some(b, std::move(handler));
+        } else {
+            socket_.async_receive(b, std::move(handler));
+        }
+    }
     void async_write(std::vector<boost::asio::const_buffer> const& bs, rw_handler handler) override {
-        boost::asio::async_write(socket_, bs, std::move(handler));
+        if (use_tls_ && ssl_stream_) {
+            boost::asio::async_write(*ssl_stream_, bs, std::move(handler));
+        } else {
+            boost::asio::async_write(socket_, bs, std::move(handler));
+        }
     }
     void async_write(boost::asio::const_buffer const& b, completion_condition cc, rw_handler handler) override {
-        boost::asio::async_write(socket_, b, std::move(cc), std::move(handler));
+        if (use_tls_ && ssl_stream_) {
+            boost::asio::async_write(*ssl_stream_, b, std::move(cc), std::move(handler));
+        } else {
+            boost::asio::async_write(socket_, b, std::move(cc), std::move(handler));
+        }
+    }
+
+    bool set_tls_context(std::shared_ptr<void> ctx) override {
+        ssl_ctx_ = std::static_pointer_cast<boost::asio::ssl::context>(ctx);
+        if (!ssl_ctx_) return false;
+        ssl_stream_ = std::make_unique<boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>>(socket_, *ssl_ctx_);
+        use_tls_ = true;
+        return true;
+    }
+    bool handshake_client() override {
+        if (!use_tls_ || !ssl_stream_) return false;
+        boost::system::error_code ec;
+        ssl_stream_->handshake(boost::asio::ssl::stream_base::client, ec);
+        return !ec;
+    }
+    bool handshake_server() override {
+        if (!use_tls_ || !ssl_stream_) return false;
+        boost::system::error_code ec;
+        ssl_stream_->handshake(boost::asio::ssl::stream_base::server, ec);
+        return !ec;
     }
 
     // needs to access the socket member to create a meaningful new connection
     friend class asio_tcp_acceptor;
     boost::asio::ip::tcp::socket socket_;
+    std::unique_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket&>> ssl_stream_;
+    std::shared_ptr<boost::asio::ssl::context> ssl_ctx_;
+    bool use_tls_;
 };
 
 class asio_tcp_acceptor final : public tcp_acceptor {

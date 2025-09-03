@@ -14,6 +14,10 @@
 
 #include "abstract_netlink_connector.hpp"
 #include "tcp_socket.hpp"
+//#ifdef VSOMEIP_ENABLE_TLS
+#include <boost/asio/ssl/context.hpp>
+#include <memory>
+//#endif
 
 namespace vsomeip_v3 {
 
@@ -34,6 +38,14 @@ public:
     // only tcp sockets are fakable atm.
     virtual std::unique_ptr<tcp_socket> create_tcp_socket(boost::asio::io_context& _io) = 0;
     virtual std::unique_ptr<tcp_acceptor> create_tcp_acceptor(boost::asio::io_context& _io) = 0;
+
+    // TLS helpers (optional)
+    virtual std::shared_ptr<boost::asio::ssl::context> create_tls_client_context() {
+        return std::make_shared<boost::asio::ssl::context>(boost::asio::ssl::context::tls_client);
+    }
+    virtual std::shared_ptr<boost::asio::ssl::context> create_tls_server_context() {
+        return std::make_shared<boost::asio::ssl::context>(boost::asio::ssl::context::tls_server);
+    }
 
     std::unique_ptr<boost::asio::ip::udp::socket> create_udp_socket(boost::asio::io_context& _io) {
         return std::make_unique<boost::asio::ip::udp::socket>(_io);

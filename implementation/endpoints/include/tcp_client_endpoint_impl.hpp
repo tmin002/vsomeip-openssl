@@ -88,6 +88,9 @@ private:
     std::chrono::steady_clock::time_point connect_timepoint_;
 
     boost::asio::steady_timer sent_timer_;
+
+    // TLS handshake state
+    bool tls_handshake_done_ = false;
 };
 
 } // namespace vsomeip_v3

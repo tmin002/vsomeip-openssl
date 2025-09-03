@@ -236,6 +236,16 @@ std::shared_ptr<endpoint> endpoint_manager_impl::create_server_endpoint(uint16_t
                 boost::asio::ip::tcp::endpoint its_reliable(its_unicast, _port);
                 its_tmp->init(its_reliable, its_error);
                 if (!its_error) {
+                    // JSON-driven TLS: set envs for server side if configured
+                    if (configuration_->is_tls_enabled_for_endpoint(its_unicast_str, _port)) {
+                        setenv("VSOMEIP_ENABLE_TLS", "1", 1);
+                        auto ca_root = configuration_->get_tls_ca_root_for_endpoint(its_unicast_str, _port);
+                        auto cert = configuration_->get_tls_cert_chain_for_endpoint(its_unicast_str, _port);
+                        auto key = configuration_->get_tls_private_key_for_endpoint(its_unicast_str, _port);
+                        if (!ca_root.empty()) setenv("VSOMEIP_TLS_CA_ROOT", ca_root.c_str(), 1);
+                        if (!cert.empty()) setenv("VSOMEIP_TLS_CERT_CHAIN", cert.c_str(), 1);
+                        if (!key.empty()) setenv("VSOMEIP_TLS_PRIVATE_KEY", key.c_str(), 1);
+                    }
                     if (configuration_->has_enabled_magic_cookies(its_unicast_str, _port)
                         || configuration_->has_enabled_magic_cookies("local", _port)) {
                         its_tmp->enable_magic_cookies();
@@ -1082,7 +1092,16 @@ std::shared_ptr<endpoint> endpoint_manager_impl::create_client_endpoint(const bo
             its_endpoint = std::make_shared<tcp_client_endpoint_impl>(
                     shared_from_this(), rm_->shared_from_this(), boost::asio::ip::tcp::endpoint(its_unicast, _local_port),
                     boost::asio::ip::tcp::endpoint(_address, _remote_port), io_, configuration_);
-
+            // JSON-driven TLS: set envs for client side if configured
+            if (configuration_->is_tls_enabled_for_endpoint(_address.to_string(), _remote_port)) {
+                setenv("VSOMEIP_ENABLE_TLS", "1", 1);
+                auto ca_root = configuration_->get_tls_ca_root_for_endpoint(_address.to_string(), _remote_port);
+                auto cert = configuration_->get_tls_cert_chain_for_endpoint(_address.to_string(), _remote_port);
+                auto key = configuration_->get_tls_private_key_for_endpoint(_address.to_string(), _remote_port);
+                if (!ca_root.empty()) setenv("VSOMEIP_TLS_CA_ROOT", ca_root.c_str(), 1);
+                if (!cert.empty()) setenv("VSOMEIP_TLS_CERT_CHAIN", cert.c_str(), 1);
+                if (!key.empty()) setenv("VSOMEIP_TLS_PRIVATE_KEY", key.c_str(), 1);
+            }
             if (configuration_->has_enabled_magic_cookies(_address.to_string(), _remote_port)) {
                 its_endpoint->enable_magic_cookies();
             }

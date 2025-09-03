@@ -65,6 +65,11 @@ public:
     // usually the ConstBufferSequence is a template parameter
     virtual void async_write(std::vector<boost::asio::const_buffer> const&, rw_handler) = 0;
     virtual void async_write(boost::asio::const_buffer const& b, completion_condition cc, rw_handler handler) = 0;
+
+    // TLS hooks (no-op for plain tcp)
+    virtual bool set_tls_context(std::shared_ptr<void> /*ctx*/) { return false; }
+    virtual bool handshake_client() { return false; }
+    virtual bool handshake_server() { return false; }
 #if defined(__linux__) || defined(ANDROID)
     /**
      * abstraction for setting the linux specific tcp option

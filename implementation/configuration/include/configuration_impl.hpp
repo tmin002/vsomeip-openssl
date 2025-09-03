@@ -237,6 +237,23 @@ public:
 
     VSOMEIP_EXPORT bool is_secure_service(service_t _service, instance_t _instance) const;
 
+    // TLS getters (by service)
+    VSOMEIP_EXPORT bool is_tls_enabled(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT std::string get_tls_ca_root(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT std::string get_tls_ca_intermediate(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT std::string get_tls_ca_ecu(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT std::string get_tls_cert_chain(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT std::string get_tls_private_key(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT bool get_tls_verify_peer(service_t _service, instance_t _instance) const;
+    VSOMEIP_EXPORT int get_tls_verify_depth(service_t _service, instance_t _instance) const;
+
+    // TLS getters (by endpoint)
+    VSOMEIP_EXPORT bool is_tls_enabled_for_endpoint(const std::string& _address, std::uint16_t _port) const;
+    VSOMEIP_EXPORT std::string get_tls_ca_root_for_endpoint(const std::string& _address, std::uint16_t _port) const;
+    VSOMEIP_EXPORT std::string get_tls_cert_chain_for_endpoint(const std::string& _address, std::uint16_t _port) const;
+    VSOMEIP_EXPORT std::string get_tls_private_key_for_endpoint(const std::string& _address, std::uint16_t _port) const;
+    VSOMEIP_EXPORT bool get_tls_verify_peer_for_endpoint(const std::string& _address, std::uint16_t _port) const;
+
     VSOMEIP_EXPORT int get_udp_receive_buffer_size() const;
 
     VSOMEIP_EXPORT bool is_tp_client(service_t _service, instance_t _instance, method_t _method) const;
@@ -337,6 +354,7 @@ private:
     void load_services(const configuration_element& _element);
     void load_servicegroup(const boost::property_tree::ptree& _tree);
     void load_service(const boost::property_tree::ptree& _tree, const std::string& _unicast_address);
+    void load_service_tls(const boost::property_tree::ptree& _tree, std::shared_ptr<service>& _service);
     void load_event(std::shared_ptr<service>& _service, const boost::property_tree::ptree& _tree);
     void load_eventgroup(std::shared_ptr<service>& _service, const boost::property_tree::ptree& _tree);
 

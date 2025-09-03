@@ -5,6 +5,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include <iomanip>
+#include <cstdlib>
+#include <string>
 
 #include <boost/asio/write.hpp>
 
@@ -15,6 +17,7 @@
 #include "../include/endpoint_host.hpp"
 #include "../../routing/include/routing_host.hpp"
 #include "../include/tcp_server_endpoint_impl.hpp"
+#include "../include/abstract_socket_factory.hpp"
 #include "../../utility/include/utility.hpp"
 #include "../../utility/include/bithelper.hpp"
 
@@ -258,6 +261,35 @@ void tcp_server_endpoint_impl::accept_cbk(connection::ptr _connection, boost::sy
                 VSOMEIP_WARNING << "tsei::" << __func__ << ": could not setsockopt(TCP_USER_TIMEOUT), errno " << errno;
             }
 #endif
+
+            // Optional TLS enable + handshake
+            const char* tls_enable = std::getenv("VSOMEIP_ENABLE_TLS");
+            if (tls_enable && std::string(tls_enable) == "1") {
+                try {
+                    auto factory = abstract_socket_factory::get();
+                    auto ctx = factory->create_tls_server_context();
+                    const char* ca_root = std::getenv("VSOMEIP_TLS_CA_ROOT");
+                    const char* cert_chain = std::getenv("VSOMEIP_TLS_CERT_CHAIN");
+                    const char* priv_key = std::getenv("VSOMEIP_TLS_PRIVATE_KEY");
+                    const char* verify_peer = std::getenv("VSOMEIP_TLS_VERIFY_PEER");
+                    if (verify_peer && std::string(verify_peer) == "0") {
+                        ctx->set_verify_mode(boost::asio::ssl::verify_none);
+                    } else {
+                        ctx->set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
+                    }
+                    if (ca_root && std::string(ca_root).size()) {
+                        ctx->load_verify_file(ca_root);
+                    }
+                    if (cert_chain && priv_key && std::string(cert_chain).size() && std::string(priv_key).size()) {
+                        ctx->use_certificate_chain_file(cert_chain);
+                        ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
+                    }
+                    _connection->enable_tls(ctx);
+                    (void)_connection->handshake_server_tls();
+                } catch (...) {
+                    VSOMEIP_WARNING << "TLS server context/handshake failed, continuing without TLS";
+                }
+            }
         }
         if (!its_error) {
             {
@@ -344,6 +376,21 @@ tcp_server_endpoint_impl::connection::create(const std::weak_ptr<tcp_server_endp
 tcp_server_endpoint_impl::socket_type& tcp_server_endpoint_impl::connection::get_socket() {
     return socket_;
 }
+void tcp_server_endpoint_impl::connection::enable_tls(std::shared_ptr<boost::asio::ssl::context> _ctx) {
+    ssl_ctx_ = _ctx;
+    if (ssl_ctx_) {
+        ssl_stream_ = std::make_unique<boost::asio::ssl::stream<socket_type&>>(socket_, *ssl_ctx_);
+        use_tls_ = true;
+    }
+}
+
+bool tcp_server_endpoint_impl::connection::handshake_server_tls() {
+    if (!use_tls_ || !ssl_stream_) return false;
+    boost::system::error_code ec;
+    ssl_stream_->handshake(boost::asio::ssl::stream_base::server, ec);
+    return !ec;
+}
+
 
 std::unique_lock<std::mutex> tcp_server_endpoint_impl::connection::get_socket_lock() {
     return std::unique_lock<std::mutex>(socket_mutex_);

@@ -250,6 +250,23 @@ public:
 
     virtual bool is_secure_service(service_t _service, instance_t _instance) const = 0;
 
+    // TLS getters
+    virtual bool is_tls_enabled(service_t _service, instance_t _instance) const = 0;
+    virtual std::string get_tls_ca_root(service_t _service, instance_t _instance) const = 0;
+    virtual std::string get_tls_ca_intermediate(service_t _service, instance_t _instance) const = 0;
+    virtual std::string get_tls_ca_ecu(service_t _service, instance_t _instance) const = 0;
+    virtual std::string get_tls_cert_chain(service_t _service, instance_t _instance) const = 0;
+    virtual std::string get_tls_private_key(service_t _service, instance_t _instance) const = 0;
+    virtual bool get_tls_verify_peer(service_t _service, instance_t _instance) const = 0;
+    virtual int get_tls_verify_depth(service_t _service, instance_t _instance) const = 0;
+
+    // TLS getters by endpoint (address/port), for client/server endpoint decisions
+    virtual bool is_tls_enabled_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual std::string get_tls_ca_root_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual std::string get_tls_cert_chain_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual std::string get_tls_private_key_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual bool get_tls_verify_peer_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+
     virtual int get_udp_receive_buffer_size() const = 0;
 
     virtual bool check_routing_credentials(client_t _client, const vsomeip_sec_client_t* _sec_client) const = 0;

@@ -44,6 +44,99 @@
 
 namespace vsomeip_v3 {
 namespace cfg {
+bool configuration_impl::is_tls_enabled(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_enable_ : false);
+}
+
+std::string configuration_impl::get_tls_ca_root(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_ca_root_ : std::string());
+}
+
+std::string configuration_impl::get_tls_ca_intermediate(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_ca_intermediate_ : std::string());
+}
+
+std::string configuration_impl::get_tls_ca_ecu(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_ca_ecu_ : std::string());
+}
+
+std::string configuration_impl::get_tls_cert_chain(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_cert_chain_ : std::string());
+}
+
+std::string configuration_impl::get_tls_private_key(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_private_key_ : std::string());
+}
+
+bool configuration_impl::get_tls_verify_peer(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_verify_peer_ : true);
+}
+
+int configuration_impl::get_tls_verify_depth(service_t _service, instance_t _instance) const {
+    auto s = find_service(_service, _instance);
+    return (s ? s->tls_verify_depth_ : 3);
+}
+
+bool configuration_impl::is_tls_enabled_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end()) {
+            for (const auto& kv : fp->second) {
+                if (kv.second && kv.second->tls_enable_) return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::string configuration_impl::get_tls_ca_root_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_ca_root_;
+    }
+    return {};
+}
+
+std::string configuration_impl::get_tls_cert_chain_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_cert_chain_;
+    }
+    return {};
+}
+
+std::string configuration_impl::get_tls_private_key_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_private_key_;
+    }
+    return {};
+}
+
+bool configuration_impl::get_tls_verify_peer_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_verify_peer_;
+    }
+    return true;
+}
 
 configuration_impl::configuration_impl(const std::string& _path) :
     default_unicast_{"local"}, is_loaded_{false}, is_logging_loaded_{false}, prefix_{VSOMEIP_PREFIX}, diagnosis_{VSOMEIP_DIAGNOSIS_ADDRESS},
@@ -1935,6 +2028,35 @@ void configuration_impl::load_services(const configuration_element& _element) {
     }
 }
 
+// Helper to load TLS block inside a service's reliable section
+void configuration_impl::load_service_tls(const boost::property_tree::ptree& _tree, std::shared_ptr<service>& _service) {
+    try {
+        for (const auto& kv : _tree) {
+            const std::string key = kv.first;
+            const std::string val = kv.second.data();
+            if (key == "enable") {
+                _service->tls_enable_ = (val == "true" || val == "1");
+            } else if (key == "ca-root") {
+                _service->tls_ca_root_ = val;
+            } else if (key == "ca-intermediate") {
+                _service->tls_ca_intermediate_ = val;
+            } else if (key == "ca-ecu") {
+                _service->tls_ca_ecu_ = val;
+            } else if (key == "certificate" || key == "cert-chain") {
+                _service->tls_cert_chain_ = val;
+            } else if (key == "private-key") {
+                _service->tls_private_key_ = val;
+            } else if (key == "verify-peer") {
+                _service->tls_verify_peer_ = (val == "true" || val == "1");
+            } else if (key == "verify-depth") {
+                try { _service->tls_verify_depth_ = std::stoi(val); } catch (...) {}
+            }
+        }
+    } catch (...) {
+        // ignore malformed tls block
+    }
+}
+
 void configuration_impl::load_servicegroup(const boost::property_tree::ptree& _tree) {
     try {
         std::string its_unicast_address(default_unicast_);
@@ -2024,6 +2146,15 @@ void configuration_impl::load_service(const boost::property_tree::ptree& _tree, 
                 load_npdu_debounce_times_configuration(its_service, i->second);
             } else if (its_key == "someip-tp") {
                 load_someip_tp(its_service, i->second);
+            } else if (its_key == "reliable") {
+                // already handled port above, but also check for tls block inside
+                try {
+                    auto maybe_tls = i->second.get_child_optional("tls");
+                    if (maybe_tls) {
+                        load_service_tls(*maybe_tls, its_service);
+                    }
+                } catch (...) {
+                }
             } else {
                 // Trim "its_value"
                 if (its_value.size() > 1 && its_value[0] == '0' && its_value[1] == 'x') {

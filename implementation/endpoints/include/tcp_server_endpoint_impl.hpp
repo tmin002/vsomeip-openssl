@@ -10,6 +10,7 @@
 #include <memory>
 
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/stream.hpp>
 
 #include <vsomeip/defines.hpp>
 #include <vsomeip/export.hpp>
@@ -77,6 +78,8 @@ private:
 
         socket_type& get_socket();
         std::unique_lock<std::mutex> get_socket_lock();
+        void enable_tls(std::shared_ptr<boost::asio::ssl::context> _ctx);
+        bool handshake_server_tls();
 
         void start();
         void stop();
@@ -106,6 +109,9 @@ private:
 
         std::mutex socket_mutex_;
         tcp_server_endpoint_impl::socket_type socket_;
+        std::unique_ptr<boost::asio::ssl::stream<tcp_server_endpoint_impl::socket_type&>> ssl_stream_;
+        std::shared_ptr<boost::asio::ssl::context> ssl_ctx_;
+        bool use_tls_ = false;
         std::weak_ptr<tcp_server_endpoint_impl> server_;
 
         const uint32_t max_message_size_;
