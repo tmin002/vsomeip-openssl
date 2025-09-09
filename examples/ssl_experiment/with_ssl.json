@@ -1,0 +1,39 @@
+{
+  "unicast": "127.0.0.1",
+  "applications": [
+    { "name": "bench_server", "id": "0x3101" },
+    { "name": "bench_client", "id": "0x3102" }
+  ],
+  "services": [
+    {
+      "service": "0x9001",
+      "instance": "0x0001",
+      "reliable": "30601",
+      "reliable_min": "30601",
+      "reliable_max": "30601",
+      "tls": {
+        "enable": true,
+        "ca-root": "examples/ssl/certs/root.crt",
+        "ca-intermediate": "examples/ssl/certs/intermediate.crt",
+        "certificate": "examples/ssl/certs/server_chain.crt",
+        "private-key": "examples/ssl/certs/server.key",
+        "verify-peer": true
+      }
+    },
+    {
+      "service": "0x9001",
+      "instance": "0x0001",
+      "remote": "127.0.0.1",
+      "reliable": "30601",
+      "tls": {
+        "enable": true,
+        "ca-root": "examples/ssl/certs/root.crt",
+        "ca-intermediate": "examples/ssl/certs/intermediate.crt",
+        "certificate": "examples/ssl/certs/client_chain.crt",
+        "private-key": "examples/ssl/certs/client.key",
+        "verify-peer": true
+      }
+    }
+  ]
+}
+

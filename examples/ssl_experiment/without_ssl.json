@@ -1,0 +1,23 @@
+{
+  "unicast": "127.0.0.1",
+  "applications": [
+    { "name": "bench_server", "id": "0x3101" },
+    { "name": "bench_client", "id": "0x3102" }
+  ],
+  "services": [
+    {
+      "service": "0x9001",
+      "instance": "0x0001",
+      "reliable": "30602",
+      "reliable_min": "30602",
+      "reliable_max": "30602"
+    },
+    {
+      "service": "0x9001",
+      "instance": "0x0001",
+      "remote": "127.0.0.1",
+      "reliable": "30602"
+    }
+  ]
+}
+

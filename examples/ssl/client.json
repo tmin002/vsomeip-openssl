@@ -1,0 +1,23 @@
+{
+  "unicast": "127.0.0.1",
+  "applications": [
+    { "name": "ssl_client", "id": "0x2222" }
+  ],
+  "services": [
+    {
+      "service": "0x1234",
+      "instance": "0x5678",
+      "remote": "127.0.0.1",
+      "reliable": "30509",
+      "tls": {
+        "enable": true,
+        "ca-root": "examples/ssl/certs/root.crt",
+        "ca-intermediate": "examples/ssl/certs/intermediate.crt",
+        "certificate": "examples/ssl/certs/client_chain.crt",
+        "private-key": "examples/ssl/certs/client.key",
+        "verify-peer": true
+      }
+    }
+  ]
+}
+
