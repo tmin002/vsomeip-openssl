@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <string>
+#include <fstream>
 
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/write.hpp>
@@ -231,15 +232,30 @@ void tcp_client_endpoint_impl::connect() {
                 }
                 if (ca_inter && std::string(ca_inter).size()) {
 #if (BOOST_VERSION >= 107400)
-                    FILE* f = std::fopen(ca_inter, "rb");
-                    if (f) std::fclose(f);
-                    // attempt to add as additional CA if supported
+                    try {
+                        std::ifstream inter_in(ca_inter, std::ios::binary);
+                        if (inter_in) {
+                            std::string inter_pem((std::istreambuf_iterator<char>(inter_in)), std::istreambuf_iterator<char>());
+                            if (!inter_pem.empty()) {
+                                ctx->add_certificate_authority(boost::asio::buffer(inter_pem.data(), inter_pem.size()));
+                            }
+                        }
+                    } catch (...) {
+                    }
 #endif
                 }
                 if (ca_ecu && std::string(ca_ecu).size()) {
 #if (BOOST_VERSION >= 107400)
-                    FILE* f2 = std::fopen(ca_ecu, "rb");
-                    if (f2) std::fclose(f2);
+                    try {
+                        std::ifstream ecu_in(ca_ecu, std::ios::binary);
+                        if (ecu_in) {
+                            std::string ecu_pem((std::istreambuf_iterator<char>(ecu_in)), std::istreambuf_iterator<char>());
+                            if (!ecu_pem.empty()) {
+                                ctx->add_certificate_authority(boost::asio::buffer(ecu_pem.data(), ecu_pem.size()));
+                            }
+                        }
+                    } catch (...) {
+                    }
 #endif
                 }
                 const char* cert_chain = std::getenv("VSOMEIP_TLS_CERT_CHAIN");

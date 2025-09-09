@@ -269,6 +269,8 @@ void tcp_server_endpoint_impl::accept_cbk(connection::ptr _connection, boost::sy
                     auto factory = abstract_socket_factory::get();
                     auto ctx = factory->create_tls_server_context();
                     const char* ca_root = std::getenv("VSOMEIP_TLS_CA_ROOT");
+                    const char* ca_inter = std::getenv("VSOMEIP_TLS_CA_INTERMEDIATE");
+                    const char* ca_ecu = std::getenv("VSOMEIP_TLS_CA_ECU");
                     const char* cert_chain = std::getenv("VSOMEIP_TLS_CERT_CHAIN");
                     const char* priv_key = std::getenv("VSOMEIP_TLS_PRIVATE_KEY");
                     const char* verify_peer = std::getenv("VSOMEIP_TLS_VERIFY_PEER");
@@ -280,6 +282,32 @@ void tcp_server_endpoint_impl::accept_cbk(connection::ptr _connection, boost::sy
                     if (ca_root && std::string(ca_root).size()) {
                         ctx->load_verify_file(ca_root);
                     }
+#if (BOOST_VERSION >= 107400)
+                    if (ca_inter && std::string(ca_inter).size()) {
+                        try {
+                            std::ifstream inter_in(ca_inter, std::ios::binary);
+                            if (inter_in) {
+                                std::string inter_pem((std::istreambuf_iterator<char>(inter_in)), std::istreambuf_iterator<char>());
+                                if (!inter_pem.empty()) {
+                                    ctx->add_certificate_authority(boost::asio::buffer(inter_pem.data(), inter_pem.size()));
+                                }
+                            }
+                        } catch (...) {
+                        }
+                    }
+                    if (ca_ecu && std::string(ca_ecu).size()) {
+                        try {
+                            std::ifstream ecu_in(ca_ecu, std::ios::binary);
+                            if (ecu_in) {
+                                std::string ecu_pem((std::istreambuf_iterator<char>(ecu_in)), std::istreambuf_iterator<char>());
+                                if (!ecu_pem.empty()) {
+                                    ctx->add_certificate_authority(boost::asio::buffer(ecu_pem.data(), ecu_pem.size()));
+                                }
+                            }
+                        } catch (...) {
+                        }
+                    }
+#endif
                     if (cert_chain && priv_key && std::string(cert_chain).size() && std::string(priv_key).size()) {
                         ctx->use_certificate_chain_file(cert_chain);
                         ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
