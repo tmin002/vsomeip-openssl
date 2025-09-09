@@ -263,6 +263,8 @@ public:
     // TLS getters by endpoint (address/port), for client/server endpoint decisions
     virtual bool is_tls_enabled_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
     virtual std::string get_tls_ca_root_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual std::string get_tls_ca_intermediate_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
+    virtual std::string get_tls_ca_ecu_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
     virtual std::string get_tls_cert_chain_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
     virtual std::string get_tls_private_key_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;
     virtual bool get_tls_verify_peer_for_endpoint(const std::string& _address, std::uint16_t _port) const = 0;

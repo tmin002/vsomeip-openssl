@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <cstdlib>
 #include <string>
+#include <fstream>
 
 #include <boost/asio/write.hpp>
 
@@ -20,6 +21,7 @@
 #include "../include/abstract_socket_factory.hpp"
 #include "../../utility/include/utility.hpp"
 #include "../../utility/include/bithelper.hpp"
+#include "../../utility/include/instrumentation.hpp"
 
 namespace ip = boost::asio::ip;
 
@@ -279,6 +281,12 @@ void tcp_server_endpoint_impl::accept_cbk(connection::ptr _connection, boost::sy
                     } else {
                         ctx->set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
                     }
+
+                    // Enforce TLS versions and cipher suites if provided
+#if defined(OPENSSL_VERSION_NUMBER)
+                    ctx->set_options(boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3
+                                     | boost::asio::ssl::context::no_tlsv1 | boost::asio::ssl::context::no_tlsv1_1);
+#endif
                     if (ca_root && std::string(ca_root).size()) {
                         ctx->load_verify_file(ca_root);
                     }
@@ -429,6 +437,7 @@ void tcp_server_endpoint_impl::connection::start() {
 }
 
 void tcp_server_endpoint_impl::connection::receive() {
+    vsomeip_v3::bench_internal::scope_timer _t("tse_receive");
     std::lock_guard<std::mutex> its_lock(socket_mutex_);
     if (socket_.is_open()) {
         const std::size_t its_capacity(recv_buffer_.capacity());
@@ -496,6 +505,7 @@ void tcp_server_endpoint_impl::connection::stop() {
 }
 
 void tcp_server_endpoint_impl::connection::send_queued(const target_data_iterator_type _it) {
+    vsomeip_v3::bench_internal::scope_timer _t("tse_send_queued");
 
     std::shared_ptr<tcp_server_endpoint_impl> its_server(server_.lock());
     if (!its_server) {

@@ -108,6 +108,26 @@ std::string configuration_impl::get_tls_ca_root_for_endpoint(const std::string& 
     return {};
 }
 
+std::string configuration_impl::get_tls_ca_intermediate_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_ca_intermediate_;
+    }
+    return {};
+}
+
+std::string configuration_impl::get_tls_ca_ecu_for_endpoint(const std::string& _address, std::uint16_t _port) const {
+    std::lock_guard<std::mutex> its_lock(services_mutex_);
+    auto fa = services_by_ip_port_.find(_address);
+    if (fa != services_by_ip_port_.end()) {
+        auto fp = fa->second.find(_port);
+        if (fp != fa->second.end() && !fp->second.empty()) return fp->second.begin()->second->tls_ca_ecu_;
+    }
+    return {};
+}
+
 std::string configuration_impl::get_tls_cert_chain_for_endpoint(const std::string& _address, std::uint16_t _port) const {
     std::lock_guard<std::mutex> its_lock(services_mutex_);
     auto fa = services_by_ip_port_.find(_address);

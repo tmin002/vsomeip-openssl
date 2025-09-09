@@ -240,11 +240,17 @@ std::shared_ptr<endpoint> endpoint_manager_impl::create_server_endpoint(uint16_t
                     if (configuration_->is_tls_enabled_for_endpoint(its_unicast_str, _port)) {
                         setenv("VSOMEIP_ENABLE_TLS", "1", 1);
                         auto ca_root = configuration_->get_tls_ca_root_for_endpoint(its_unicast_str, _port);
+                        auto ca_inter = configuration_->get_tls_ca_intermediate_for_endpoint(its_unicast_str, _port);
+                        auto ca_ecu = configuration_->get_tls_ca_ecu_for_endpoint(its_unicast_str, _port);
                         auto cert = configuration_->get_tls_cert_chain_for_endpoint(its_unicast_str, _port);
                         auto key = configuration_->get_tls_private_key_for_endpoint(its_unicast_str, _port);
+                        auto verify_peer = configuration_->get_tls_verify_peer_for_endpoint(its_unicast_str, _port);
                         if (!ca_root.empty()) setenv("VSOMEIP_TLS_CA_ROOT", ca_root.c_str(), 1);
+                        if (!ca_inter.empty()) setenv("VSOMEIP_TLS_CA_INTERMEDIATE", ca_inter.c_str(), 1);
+                        if (!ca_ecu.empty()) setenv("VSOMEIP_TLS_CA_ECU", ca_ecu.c_str(), 1);
                         if (!cert.empty()) setenv("VSOMEIP_TLS_CERT_CHAIN", cert.c_str(), 1);
                         if (!key.empty()) setenv("VSOMEIP_TLS_PRIVATE_KEY", key.c_str(), 1);
+                        setenv("VSOMEIP_TLS_VERIFY_PEER", verify_peer ? "1" : "0", 1);
                     }
                     if (configuration_->has_enabled_magic_cookies(its_unicast_str, _port)
                         || configuration_->has_enabled_magic_cookies("local", _port)) {
@@ -1096,11 +1102,17 @@ std::shared_ptr<endpoint> endpoint_manager_impl::create_client_endpoint(const bo
             if (configuration_->is_tls_enabled_for_endpoint(_address.to_string(), _remote_port)) {
                 setenv("VSOMEIP_ENABLE_TLS", "1", 1);
                 auto ca_root = configuration_->get_tls_ca_root_for_endpoint(_address.to_string(), _remote_port);
+                auto ca_inter = configuration_->get_tls_ca_intermediate_for_endpoint(_address.to_string(), _remote_port);
+                auto ca_ecu = configuration_->get_tls_ca_ecu_for_endpoint(_address.to_string(), _remote_port);
                 auto cert = configuration_->get_tls_cert_chain_for_endpoint(_address.to_string(), _remote_port);
                 auto key = configuration_->get_tls_private_key_for_endpoint(_address.to_string(), _remote_port);
+                auto verify_peer = configuration_->get_tls_verify_peer_for_endpoint(_address.to_string(), _remote_port);
                 if (!ca_root.empty()) setenv("VSOMEIP_TLS_CA_ROOT", ca_root.c_str(), 1);
+                if (!ca_inter.empty()) setenv("VSOMEIP_TLS_CA_INTERMEDIATE", ca_inter.c_str(), 1);
+                if (!ca_ecu.empty()) setenv("VSOMEIP_TLS_CA_ECU", ca_ecu.c_str(), 1);
                 if (!cert.empty()) setenv("VSOMEIP_TLS_CERT_CHAIN", cert.c_str(), 1);
                 if (!key.empty()) setenv("VSOMEIP_TLS_PRIVATE_KEY", key.c_str(), 1);
+                setenv("VSOMEIP_TLS_VERIFY_PEER", verify_peer ? "1" : "0", 1);
             }
             if (configuration_->has_enabled_magic_cookies(_address.to_string(), _remote_port)) {
                 its_endpoint->enable_magic_cookies();

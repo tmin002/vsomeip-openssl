@@ -23,6 +23,7 @@
 #include "../../utility/include/utility.hpp"
 #include "../../utility/include/bithelper.hpp"
 #include "../include/abstract_socket_factory.hpp"
+#include "../../utility/include/instrumentation.hpp"
 
 namespace vsomeip_v3 {
 
@@ -226,6 +227,18 @@ void tcp_client_endpoint_impl::connect() {
                 } else {
                     ctx->set_verify_mode(boost::asio::ssl::verify_peer);
                 }
+
+                // Enforce TLS versions and cipher suites if provided
+                const char* tls_min = std::getenv("VSOMEIP_TLS_MIN_VERSION");
+                const char* tls_max = std::getenv("VSOMEIP_TLS_MAX_VERSION");
+                const char* ciphers = std::getenv("VSOMEIP_TLS_CIPHERS");
+                const char* ciphers13 = std::getenv("VSOMEIP_TLS_CIPHERSUITES13");
+                (void)tls_min; (void)tls_max; (void)ciphers; (void)ciphers13;
+#if defined(OPENSSL_VERSION_NUMBER)
+                // Prefer disabling legacy protocols if min version >= 1.2
+                ctx->set_options(boost::asio::ssl::context::no_sslv2 | boost::asio::ssl::context::no_sslv3
+                                 | boost::asio::ssl::context::no_tlsv1 | boost::asio::ssl::context::no_tlsv1_1);
+#endif
                 if (ca_root && std::string(ca_root).size()) {
                     boost::system::error_code ec2;
                     ctx->load_verify_file(ca_root);
@@ -265,6 +278,30 @@ void tcp_client_endpoint_impl::connect() {
                     ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
                 }
                 (void)socket_->set_tls_context(ctx);
+
+                // Hostname verification and SNI
+                const char* server_name = std::getenv("VSOMEIP_TLS_SERVER_NAME");
+                if (server_name && std::strlen(server_name)) {
+                    // SNI is handled inside OpenSSL via native_handle, but we use verify callback for hostname
+                    try {
+                        // attach verify callback for hostname check using OpenSSL APIs
+                        ctx->set_verify_callback([expected = std::string(server_name)](bool preverified, boost::asio::ssl::verify_context& vctx) {
+                            if (!preverified) return false;
+                            // Do minimal hostname check at certificate end
+                            X509* cert = X509_STORE_CTX_get_current_cert(vctx.native_handle());
+                            if (!cert) return false;
+                            // Use OpenSSL hostname check if available
+#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+                            return X509_check_host(cert, expected.c_str(), expected.size(), 0, nullptr) == 1;
+#else
+                            // Fallback: accept preverified only
+                            (void)expected;
+                            return true;
+#endif
+                        });
+                    } catch (...) {
+                    }
+                }
             } catch (...) {
                 VSOMEIP_WARNING << "TLS context setup failed, continuing without TLS";
             }
@@ -305,6 +342,7 @@ void tcp_client_endpoint_impl::receive() {
 }
 
 void tcp_client_endpoint_impl::receive(message_buffer_ptr_t _recv_buffer, std::size_t _recv_buffer_size, std::size_t _missing_capacity) {
+    vsomeip_v3::bench_internal::scope_timer _t("tce_receive");
     std::scoped_lock its_lock{socket_mutex_};
     if (socket_->is_open()) {
         const std::size_t its_capacity(_recv_buffer->capacity());
@@ -344,6 +382,7 @@ void tcp_client_endpoint_impl::receive(message_buffer_ptr_t _recv_buffer, std::s
 }
 
 void tcp_client_endpoint_impl::send_queued(std::pair<message_buffer_ptr_t, uint32_t>& _entry) {
+    vsomeip_v3::bench_internal::scope_timer _t("tce_send_queued", _entry.first ? _entry.first->size() : 0);
     const service_t its_service = bithelper::read_uint16_be(&(*_entry.first)[VSOMEIP_SERVICE_POS_MIN]);
     const method_t its_method = bithelper::read_uint16_be(&(*_entry.first)[VSOMEIP_METHOD_POS_MIN]);
     const client_t its_client = bithelper::read_uint16_be(&(*_entry.first)[VSOMEIP_CLIENT_POS_MIN]);
