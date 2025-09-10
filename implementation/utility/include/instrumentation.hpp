@@ -38,6 +38,12 @@ struct scope_timer {
     }
 };
 
+inline void log_event(const char* name, std::uint64_t ns, std::size_t bytes) {
+    if (enabled()) {
+        VSOMEIP_INFO << "bench-internal name=" << name << " ns=" << ns << " bytes=" << bytes;
+    }
+}
+
 }
 }
 

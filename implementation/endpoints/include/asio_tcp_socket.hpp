@@ -14,6 +14,8 @@
 
 #include <string>
 
+#include "../../utility/include/instrumentation.hpp"
+
 namespace vsomeip_v3 {
 
 class asio_tcp_acceptor;
@@ -56,21 +58,35 @@ private:
     }
     void async_receive(boost::asio::mutable_buffer b, rw_handler handler) override {
         if (use_tls_ && ssl_stream_) {
-            ssl_stream_->async_read_some(b, std::move(handler));
+            auto t0 = bench_internal::now_ns();
+            ssl_stream_->async_read_some(b, [handler=std::move(handler), t0](auto ec, auto n){
+                bench_internal::log_event("tls_async_read", bench_internal::now_ns() - t0, static_cast<std::size_t>(n));
+                handler(ec, n);
+            });
         } else {
             socket_.async_receive(b, std::move(handler));
         }
     }
     void async_write(std::vector<boost::asio::const_buffer> const& bs, rw_handler handler) override {
         if (use_tls_ && ssl_stream_) {
-            boost::asio::async_write(*ssl_stream_, bs, std::move(handler));
+            std::size_t bytes = 0; for (auto &b : bs) bytes += boost::asio::buffer_size(b);
+            auto t0 = bench_internal::now_ns();
+            boost::asio::async_write(*ssl_stream_, bs, [handler=std::move(handler), t0, bytes](auto ec, auto n){
+                bench_internal::log_event("tls_async_write", bench_internal::now_ns() - t0, bytes);
+                handler(ec, n);
+            });
         } else {
             boost::asio::async_write(socket_, bs, std::move(handler));
         }
     }
     void async_write(boost::asio::const_buffer const& b, completion_condition cc, rw_handler handler) override {
         if (use_tls_ && ssl_stream_) {
-            boost::asio::async_write(*ssl_stream_, b, std::move(cc), std::move(handler));
+            auto t0 = bench_internal::now_ns();
+            std::size_t bytes = boost::asio::buffer_size(b);
+            boost::asio::async_write(*ssl_stream_, b, std::move(cc), [handler=std::move(handler), t0, bytes](auto ec, auto n){
+                bench_internal::log_event("tls_async_write", bench_internal::now_ns() - t0, bytes);
+                handler(ec, n);
+            });
         } else {
             boost::asio::async_write(socket_, b, std::move(cc), std::move(handler));
         }
@@ -86,13 +102,17 @@ private:
     bool handshake_client() override {
         if (!use_tls_ || !ssl_stream_) return false;
         boost::system::error_code ec;
+        auto t0 = bench_internal::now_ns();
         ssl_stream_->handshake(boost::asio::ssl::stream_base::client, ec);
+        bench_internal::log_event("tls_handshake_client", bench_internal::now_ns() - t0, 0);
         return !ec;
     }
     bool handshake_server() override {
         if (!use_tls_ || !ssl_stream_) return false;
         boost::system::error_code ec;
+        auto t0 = bench_internal::now_ns();
         ssl_stream_->handshake(boost::asio::ssl::stream_base::server, ec);
+        bench_internal::log_event("tls_handshake_server", bench_internal::now_ns() - t0, 0);
         return !ec;
     }
 

@@ -278,6 +278,7 @@ void tcp_client_endpoint_impl::connect() {
                     ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
                 }
                 (void)socket_->set_tls_context(ctx);
+                VSOMEIP_INFO << "bench-internal name=tls_ctx_client ns=0 bytes=0";
 
                 // Hostname verification and SNI
                 const char* server_name = std::getenv("VSOMEIP_TLS_SERVER_NAME");

@@ -321,6 +321,7 @@ void tcp_server_endpoint_impl::accept_cbk(connection::ptr _connection, boost::sy
                         ctx->use_private_key_file(priv_key, boost::asio::ssl::context::file_format::pem);
                     }
                     _connection->enable_tls(ctx);
+                    VSOMEIP_INFO << "bench-internal name=tls_ctx_server ns=0 bytes=0";
                     (void)_connection->handshake_server_tls();
                 } catch (...) {
                     VSOMEIP_WARNING << "TLS server context/handshake failed, continuing without TLS";

@@ -24,7 +24,7 @@ static inline uint64_t now_ns() {
 
 static std::size_t current_size = 1024; // bytes
 static std::size_t max_size = 1024 * 1024; // 1 MiB
-static int messages_per_size = 10;
+static int messages_per_size = 100;
 
 static uint64_t t_client_send = 0;
 
